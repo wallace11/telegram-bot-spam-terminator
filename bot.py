@@ -3,6 +3,10 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Conversa
 from telegram.error import TelegramError, Unauthorized, BadRequest, TimedOut, ChatMigrated, NetworkError
 import logging
 import time
+import os
+import sys
+from subprocess import Popen, PIPE
+from threading import Thread
 
 
 bot_api = ''
@@ -90,12 +94,51 @@ def logfile(bot, update):
     logging.info("%s requested the log file.", user_name)
 
 
+def restart(bot, update):
+    def stop_and_restart():
+        updater.stop()
+        os.execl(sys.executable, sys.executable, *sys.argv)
+
+    query = update.effective_message
+    user_name = query.from_user.username
+    
+    query.reply_text("♻ Restarting...")
+    Thread(target=stop_and_restart).start()
+    logging.info("%s restarted the bot", user_name)
+
+
+def upgrade(bot, update):
+    query = update.effective_message
+    user_name = query.from_user.username
+    
+    git_command = ['/usr/bin/git', 'pull']
+    repository  = os.path.dirname('') or os.getcwd()  # Fallback
+    
+    logging.info("%s initiated bot upgrade", user_name)
+    git_query = Popen(git_command, cwd=repository, stdout=PIPE, stderr=PIPE)
+    (git_status, error) = git_query.communicate()
+
+    if git_query.poll() == 0:
+        query.reply_text(
+            '🗒 `{}`'.format(git_status.decode('UTF-8')), parse_mode="Markdown")
+        logging.info("Bot upgrade completed successfully")
+        restart(bot, update)
+    else:
+        query.reply_text(
+            '`{}`'.format(error.decode('UTF-8')), parse_mode="Markdown")
+        logging.info(
+            "An error occured during upgrade: \"%s\"",
+            error.decode('UTF-8').strip())
+
+
 if __name__ == '__main__':
     filter_admins = FilterAdmins()
     
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(CommandHandler('help', help))
     dispatcher.add_handler(CommandHandler('log', logfile, filters=filter_admins))
+    dispatcher.add_handler(CommandHandler('restart', restart, filters=filter_admins))
+    dispatcher.add_handler(CommandHandler('upgrade', upgrade, filters=filter_admins))
     dispatcher.add_handler(
         MessageHandler(Filters.status_update.new_chat_members, new_user))
         
