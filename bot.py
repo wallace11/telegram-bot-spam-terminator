@@ -128,7 +128,7 @@ def help(bot, update):
     query.reply_text('\n'.join([
         "Spam Terminator by @wallace.",
         "Check out the source code @ http://github.com/wallace11/telegram-bot-spam-terminator",
-        "Bot version: 0.1 beta"]))
+        "Bot version: 0.2 beta"]))
 
 
 def logfile(bot, update):
