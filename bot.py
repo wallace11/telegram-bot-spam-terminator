@@ -13,7 +13,7 @@ from threading import Thread
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-bot_api = config['General']['bot_api']
+bot_api = config['General']['api_key']
 admins = list(map(int, config['General']['admins'].split(',')))
 path = config['General']['path'] or os.getcwd()  # Fallback
 captcha = config['Custom']['captcha']
