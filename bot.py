@@ -13,7 +13,6 @@ dispatcher = updater.dispatcher
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     filename='log.log', level=logging.INFO)
-log = logging.getLogger(__name__)
 
 
 class FilterAdmins(BaseFilter):
@@ -30,7 +29,7 @@ def start(bot, update):
             "Add me to a new group and grant me with admin right.",
             "I'll make sure no spam bots will join your group ever again."
         ]))
-    log.info(
+    logging.info(
         "User %s (ID: %s) started using the bot! Hooray!",
         user_name, user_id)
 
@@ -49,7 +48,7 @@ def new_user(bot, update):
                     "{} was terminated.",
                     "No bots allowed when Spam terminator bot is around 😈"]).format(
                         member.username))
-                log.info(
+                logging.info(
                     "%s bot has infiltrated %s group and was terminated.",
                     member.username, group_name)
             except TelegramError:
@@ -65,7 +64,7 @@ def new_user(bot, update):
                     except Unauthorized:
                         failed.append(admin.user.username)
 
-                log.info((
+                logging.info((
                     "%s bot has infiltrated %s group and couldn't be terminated. "
                     "A message was sent to %d admins, out of which %d failed (%s)"),
                     member.username, group_name, len(admins), len(failed),
@@ -88,7 +87,7 @@ def logfile(bot, update):
     file_name = 'spam-terminator-log_{}.log'.format(time.strftime('%Y-%m-%d_%H-%M-%S'))
     with open('log.log', 'rb') as log:
         query.reply_document(log, filename=file_name)
-    log.info("%s requested the log file.", user_name)
+    logging.info("%s requested the log file.", user_name)
 
 
 if __name__ == '__main__':
@@ -100,6 +99,6 @@ if __name__ == '__main__':
     dispatcher.add_handler(
         MessageHandler(Filters.status_update.new_chat_members, new_user))
         
-    log.info("Bot started.")
+    logging.info("Bot started.")
     updater.start_polling()
     updater.idle()
