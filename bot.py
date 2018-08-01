@@ -1,6 +1,7 @@
 from telegram import ChatAction, ReplyKeyboardMarkup, ReplyKeyboardRemove, InputMediaPhoto
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, BaseFilter
 from telegram.error import TelegramError, Unauthorized, BadRequest, TimedOut, ChatMigrated, NetworkError
+import configparser
 import logging
 import time
 import os
@@ -8,9 +9,12 @@ import sys
 from subprocess import Popen, PIPE
 from threading import Thread
 
+config = configparser.ConfigParser()
+config.read('config.ini')
 
-bot_api = ''
-admins = []
+bot_api = config['General']['api_key']
+admins = list(map(int, config['General']['admins'].split(',')))
+path = config['General']['path']
 
 updater = Updater(token=bot_api)
 dispatcher = updater.dispatcher
@@ -112,7 +116,7 @@ def upgrade(bot, update):
     user_name = query.from_user.username
     
     git_command = ['/usr/bin/git', 'pull']
-    repository  = os.path.dirname('') or os.getcwd()  # Fallback
+    repository  = os.path.dirname(path) or os.getcwd()  # Fallback
     
     logging.info("%s initiated bot upgrade", user_name)
     git_query = Popen(git_command, cwd=repository, stdout=PIPE, stderr=PIPE)
