@@ -12,9 +12,9 @@ from threading import Thread
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-bot_api = config['General']['api_key']
+bot_api = config['General']['bot_api']
 admins = list(map(int, config['General']['admins'].split(',')))
-path = config['General']['path']
+path = config['General']['path'] or os.getcwd()  # Fallback
 
 updater = Updater(token=bot_api)
 dispatcher = updater.dispatcher
@@ -93,7 +93,7 @@ def logfile(bot, update):
     user_name = query.from_user.username
     
     file_name = 'spam-terminator-log_{}.log'.format(time.strftime('%Y-%m-%d_%H-%M-%S'))
-    with open('log.log', 'rb') as log:
+    with open(os.path.join(path, 'log.log'), 'rb') as log:
         query.reply_document(log, filename=file_name)
     logging.info("%s requested the log file.", user_name)
 
@@ -116,10 +116,9 @@ def upgrade(bot, update):
     user_name = query.from_user.username
     
     git_command = ['/usr/bin/git', 'pull']
-    repository  = os.path.dirname(path) or os.getcwd()  # Fallback
     
     logging.info("%s initiated bot upgrade", user_name)
-    git_query = Popen(git_command, cwd=repository, stdout=PIPE, stderr=PIPE)
+    git_query = Popen(git_command, cwd=path, stdout=PIPE, stderr=PIPE)
     (git_status, error) = git_query.communicate()
 
     if git_query.poll() == 0:
