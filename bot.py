@@ -1,5 +1,5 @@
 from telegram import ChatAction, ReplyKeyboardMarkup, ReplyKeyboardRemove, InputMediaPhoto
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, BaseFilter
 from telegram.error import TelegramError, Unauthorized, BadRequest, TimedOut, ChatMigrated, NetworkError
 import logging
 import time
@@ -14,6 +14,11 @@ dispatcher = updater.dispatcher
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     filename='log.log', level=logging.INFO)
 log = logging.getLogger(__name__)
+
+
+class FilterAdmins(BaseFilter):
+    def filter(self, message):
+        return message.from_user.id in admins
 
 
 def start(bot, update):
@@ -80,17 +85,18 @@ def logfile(bot, update):
     user_id = query.from_user.id
     user_name = query.from_user.username
     
-    if user_id in admins:
-        file_name = 'spam-terminator-log_{}.log'.format(time.strftime('%Y-%m-%d_%H-%M-%S'))
-        with open('log.log', 'rb') as log:
-            query.reply_document(log, filename=file_name)
+    file_name = 'spam-terminator-log_{}.log'.format(time.strftime('%Y-%m-%d_%H-%M-%S'))
+    with open('log.log', 'rb') as log:
+        query.reply_document(log, filename=file_name)
     log.info("%s requested the log file.", user_name)
 
 
 if __name__ == '__main__':
+    filter_admins = FilterAdmins()
+    
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(CommandHandler('help', help))
-    dispatcher.add_handler(CommandHandler('log', logfile))
+    dispatcher.add_handler(CommandHandler('log', logfile, filters=filter_admins))
     dispatcher.add_handler(
         MessageHandler(Filters.status_update.new_chat_members, new_user))
         
