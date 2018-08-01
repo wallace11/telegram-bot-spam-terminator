@@ -16,7 +16,7 @@ bot_api = config['General']['bot_api']
 admins = list(map(int, config['General']['admins'].split(',')))
 path = config['General']['path'] or os.getcwd()  # Fallback
 
-updater = Updater(token=bot_api)
+updater = Updater(token=bot_api, request_kwargs={'read_timeout': 10, 'connect_timeout': 10})
 dispatcher = updater.dispatcher
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
