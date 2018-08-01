@@ -9,12 +9,14 @@ import sys
 from subprocess import Popen, PIPE
 from threading import Thread
 
+
 config = configparser.ConfigParser()
 config.read('config.ini')
 
 bot_api = config['General']['bot_api']
 admins = list(map(int, config['General']['admins'].split(',')))
 path = config['General']['path'] or os.getcwd()  # Fallback
+captcha = config['Custom']['captcha']
 
 updater = Updater(token=bot_api, request_kwargs={'read_timeout': 10, 'connect_timeout': 10})
 dispatcher = updater.dispatcher
@@ -26,6 +28,11 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 class FilterAdmins(BaseFilter):
     def filter(self, message):
         return message.from_user.id in admins
+
+
+class FilterFollowingUsers(BaseFilter):
+    def filter(self, message):
+        return message.from_user.id in following
 
 
 def start(bot, update):
@@ -49,7 +56,7 @@ def new_user(bot, update):
     group_name = query.chat.title
 
     for member in new_chat_members:
-        if member.is_bot:
+        if member.is_bot and member.username != 'zona_bot':
             try:
                 bot.kick_chat_member(chat_id, member.id)
                 query.reply_text('\n'.join([
@@ -60,23 +67,60 @@ def new_user(bot, update):
                     "%s bot has infiltrated %s group and was terminated.",
                     member.username, group_name)
             except TelegramError:
-                admins = query.chat.get_administrators()
-                failed = []
-                for admin in admins:
-                    try:
-                        admin.user.send_message('\n'.join([
-                            "Bot @{} joined *{}* but I couldn't terminate it.",
-                            "Grant me with admin rights to terminate new bots that join this channel."
-                            ]).format(member.username, group_name),
-                            parse_mode="Markdown")
-                    except Unauthorized:
-                        failed.append(admin.user.username)
+                inform_admins(query.chat.get_administrators(), member.username, group_name)
+        else:
+            query.reply_text('\n'.join([
+                "Hi {}, welcome to {}!",
+                "Spam bots are rising lately and threatening to take over humanity!",
+                "As a precaution, we're checking the humanity of each new member.",
+                "Please include \"{}\" in your next message to show us you mean peace :)"
+                ]).format(member.username, group_name, captcha))
+            follow_user(member.id)
+            logging.info(
+                "New member %s (UID %s) joined %s and is now being followed.",
+                member.username, member.id, group_name)
 
-                logging.info((
-                    "%s bot has infiltrated %s group and couldn't be terminated. "
-                    "A message was sent to %d admins, out of which %d failed (%s)"),
-                    member.username, group_name, len(admins), len(failed),
-                    ', '.join(failed))
+
+def check_message(bot, update):
+    query = update.effective_message
+    user_id = query.from_user.id
+    user_name = query.from_user.username
+    chat_id = query.chat_id
+    group_name = query.chat.title
+    
+    try:
+        if query.text and captcha in query.text.lower():
+            query.reply_text("Horray! You're now officially one of us!")
+            logging.info("%s (UID %s) is now one of us!", user_name, user_id)
+        else:
+            query.reply_text(
+                "I had my eyes on you from the beginning! You've been terminated. Buh-bye 😈")
+            bot.kick_chat_member(chat_id, user_id)
+            logging.info("%s has infiltrated %s group and was terminated.",
+                        user_name, group_name)
+    except TelegramError:
+        inform_admins(query.chat.get_administrators(), user_name, group_name)
+        
+    unfollow_user(user_id)
+
+
+def inform_admins(admins, user, group):
+    failed = []
+    for admin in admins:
+        try:
+            admin.user.send_message('\n'.join([
+                "@{} joined *{}* but I couldn't terminate it.",
+                "Grant me with admin rights to terminate new spammers that join this group."
+                ]).format(user, group),
+                parse_mode="Markdown")
+        except Unauthorized:
+            failed.append(admin.user.username)
+
+    logging.warning((
+        "%s has infiltrated %s group and couldn't be terminated. "
+        "A message was sent to %d admins, out of which %d failed (%s)"),
+        user, group, len(admins), len(failed),
+        ', '.join(failed))
 
 
 def help(bot, update):
@@ -134,8 +178,37 @@ def upgrade(bot, update):
             error.decode('UTF-8').strip())
 
 
+def follow_user(uid):
+    with open(os.path.join(path, 'users.txt'), "a") as f:
+        f.write(str(uid))
+        
+    update_following_users()
+
+
+def unfollow_user(uid):
+    with open(os.path.join(path, 'users.txt'), "w+") as f:
+        for line in f.readlines():
+            if line != str(uid):
+                f.write(line)
+
+    update_following_users()
+
+
+def update_following_users():
+    global following
+    
+    try:
+        with open(os.path.join(path, 'users.txt'), "r") as f:
+            following = [int(user) for user in f.readlines()]
+    except FileNotFoundError:
+        following = []
+    
+
 if __name__ == '__main__':
+    update_following_users()
+    
     filter_admins = FilterAdmins()
+    filter_following = FilterFollowingUsers()
     
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(CommandHandler('help', help))
@@ -143,7 +216,10 @@ if __name__ == '__main__':
     dispatcher.add_handler(CommandHandler('restart', restart, filters=filter_admins))
     dispatcher.add_handler(CommandHandler('upgrade', upgrade, filters=filter_admins))
     dispatcher.add_handler(
-        MessageHandler(Filters.status_update.new_chat_members, new_user))
+        MessageHandler(Filters.status_update.new_chat_members, new_user))    
+    dispatcher.add_handler(
+        MessageHandler(filter_following, check_message))
+
         
     logging.info("Bot started.")
     updater.start_polling()
