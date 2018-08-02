@@ -159,7 +159,7 @@ def upgrade(bot, update):
     query = update.effective_message
     user_name = query.from_user.username
     
-    git_command = ['/usr/bin/git', 'pull']
+    git_command = ['git', 'pull']
     
     logging.info("%s initiated bot upgrade", user_name)
     git_query = Popen(git_command, cwd=path, stdout=PIPE, stderr=PIPE)
