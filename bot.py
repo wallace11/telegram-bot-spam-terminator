@@ -180,7 +180,7 @@ def upgrade(bot, update):
 
 def follow_user(uid):
     with open(os.path.join(path, 'users.txt'), "a") as f:
-        f.write(str(uid))
+        f.write('{}\n'.format(str(uid)))
         
     update_following_users()
 
