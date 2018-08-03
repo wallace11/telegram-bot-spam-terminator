@@ -56,35 +56,36 @@ def new_user(bot, update):
     group_name = query.chat.title
 
     for member in new_chat_members:
+        user_name = '@{}'.format(member.username) or member.first_name
         if member.is_bot and member.username != 'zona_bot':
             try:
                 bot.kick_chat_member(chat_id, member.id)
                 query.reply_text('\n'.join([
                     "{} was terminated.",
                     "No bots allowed when Spam terminator bot is around 😈"]).format(
-                        member.username))
+                        user_name))
                 logging.info(
                     "%s bot has infiltrated %s group and was terminated.",
-                    member.username, group_name)
+                    user_name, group_name)
             except TelegramError:
-                inform_admins(query.chat.get_administrators(), member.username, group_name)
+                inform_admins(query.chat.get_administrators(), user_name, group_name)
         else:
             query.reply_text('\n'.join([
                 "Hi {}, welcome to {}!",
                 "Spam bots are rising lately and threatening to take over humanity!",
                 "As a precaution, we're checking the humanity of each new member.",
                 "Please include \"{}\" in your next message to show us you mean peace :)"
-                ]).format(member.username, group_name, captcha))
+                ]).format(user_name, group_name, captcha))
             follow_user(member.id)
             logging.info(
                 "New member %s (UID %s) joined %s and is now being followed.",
-                member.username, member.id, group_name)
+                user_name, member.id, group_name)
 
 
 def check_message(bot, update):
     query = update.effective_message
     user_id = query.from_user.id
-    user_name = query.from_user.username
+    user_name = '@{}'.format(query.from_user.username) or query.from_user.first_name
     chat_id = query.chat_id
     group_name = query.chat.title
     
@@ -109,7 +110,7 @@ def inform_admins(admins, user, group):
     for admin in admins:
         try:
             admin.user.send_message('\n'.join([
-                "@{} joined *{}* but I couldn't terminate it.",
+                "{} joined *{}* but I couldn't terminate it.",
                 "Grant me with admin rights to terminate new spammers that join this group."
                 ]).format(user, group),
                 parse_mode="Markdown")
