@@ -56,7 +56,7 @@ def new_user(bot, update):
     group_name = query.chat.title
 
     for member in new_chat_members:
-        user_name = '@{}'.format(member.username) or member.first_name
+        user_name = '@{}'.format(member.username) if member.username else member.first_name
         if member.is_bot and member.username != 'zona_bot':
             try:
                 bot.kick_chat_member(chat_id, member.id)
@@ -85,7 +85,8 @@ def new_user(bot, update):
 def check_message(bot, update):
     query = update.effective_message
     user_id = query.from_user.id
-    user_name = '@{}'.format(query.from_user.username) or query.from_user.first_name
+    user_name = ('@{}'.format(query.from_user.username) 
+                    if query.from_user.username else query.from_user.first_name)
     chat_id = query.chat_id
     group_name = query.chat.title
     
