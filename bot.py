@@ -54,11 +54,12 @@ def new_user(bot, update):
     chat_id = query.chat_id
     new_chat_members = query.new_chat_members
     group_name = query.chat.title
-
-    for member in new_chat_members:
+    administrators = query.chat.get_administrators()
+    
+    for member in new_chat_members:  # Will be only 1 in most cases
         user_name = '@{}'.format(member.username) if member.username else member.first_name
-        if member.is_bot and member.username != 'zona_bot':
-            try:
+        if member.is_bot:
+            if bot.id in [admin.user.id for admin in administrators]:  # Check if bot is admin
                 bot.kick_chat_member(chat_id, member.id)
                 query.reply_text('\n'.join([
                     "{} was terminated.",
@@ -67,19 +68,22 @@ def new_user(bot, update):
                 logging.info(
                     "%s bot has infiltrated %s group and was terminated.",
                     user_name, group_name)
-            except TelegramError:
-                inform_admins(query.chat.get_administrators(), user_name, group_name)
+            else:
+                inform_admins(administrators, user_name, group_name)
         else:
-            query.reply_text('\n'.join([
-                "Hi {}, welcome to {}!",
-                "Spam bots are rising lately and threatening to take over humanity!",
-                "As a precaution, we're checking the humanity of each new member.",
-                "Please include \"{}\" in your next message to show us you mean peace :)"
-                ]).format(user_name, group_name, captcha))
-            follow_user(member.id)
-            logging.info(
-                "New member %s (UID %s) joined %s and is now being followed.",
-                user_name, member.id, group_name)
+            if bot.id in [admin.user.id for admin in administrators]:  # Check if bot is admin
+                query.reply_text('\n'.join([
+                    "Hi {}, welcome to {}!",
+                    "Spam bots are rising lately and threatening to take over humanity!",
+                    "As a precaution, we're checking the humanity of each new member.",
+                    "Please include \"{}\" in your next message to show us you mean peace :)"
+                    ]).format(user_name, group_name, captcha))
+                follow_user(member.id)
+                logging.info(
+                    "New member %s (UID %s) joined %s and is now being followed.",
+                    user_name, member.id, group_name)
+            else:
+                inform_admins(administrators, user_name, group_name, bot=False)
 
 
 def check_message(bot, update):
@@ -106,23 +110,35 @@ def check_message(bot, update):
     unfollow_user(user_id)
 
 
-def inform_admins(admins, user, group):
+def inform_admins(admins, user, group, bot=True):
+    if bot:
+        msg = '\n'.join([
+                "{} joined *{}* but I couldn't terminate it.",
+                "Grant me with admin rights to terminate new spammers that join this group."
+                ])
+    else:
+        msg = '\n'.join([
+                "{} joined *{}* but I don't have admin rights, so I won't check them.",
+                "Grant me with admin rights to terminate new spammers that join this group."
+                ])
+    
     failed = []
     for admin in admins:
         try:
-            admin.user.send_message('\n'.join([
-                "{} joined *{}* but I couldn't terminate it.",
-                "Grant me with admin rights to terminate new spammers that join this group."
-                ]).format(user, group),
-                parse_mode="Markdown")
+            admin.user.send_message(msg.format(user, group), parse_mode="Markdown")
         except Unauthorized:
             failed.append(admin.user.username)
-
-    logging.warning((
-        "%s has infiltrated %s group and couldn't be terminated. "
-        "A message was sent to %d admins, out of which %d failed (%s)"),
-        user, group, len(admins), len(failed),
-        ', '.join(failed))
+    
+    if bot:
+        logging.warning((
+            "%s has infiltrated %s group and couldn't be terminated. "
+            "A message was sent to %d admins, out of which %d failed (%s)"),
+            user, group, len(admins), len(failed), ', '.join(failed))
+    else:
+        logging.warning((
+            "New user %s joined %s group but bot has no admin rights. "
+            "A message was sent to %d admins, out of which %d failed (%s)"),
+            user, group, len(admins), len(failed), ', '.join(failed))
 
 
 def help(bot, update):
