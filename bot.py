@@ -22,7 +22,8 @@ updater = Updater(token=bot_api, request_kwargs={'read_timeout': 10, 'connect_ti
 dispatcher = updater.dispatcher
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    filename='log.log', level=logging.INFO)
+                    level=logging.INFO)
+                    # filename='log.log', level=logging.INFO)
 
 
 class FilterAdmins(BaseFilter):
@@ -72,12 +73,13 @@ def new_user(bot, update):
                 inform_admins(administrators, user_name, group_name)
         else:
             if bot.id in [admin.user.id for admin in administrators]:  # Check if bot is admin
-                query.reply_text('\n'.join([
+                msg = query.reply_text('\n'.join([
                     "Hi {}, welcome to {}!",
                     "Spam bots are rising lately and threatening to take over humanity!",
                     "As a precaution, we're checking the humanity of each new member.",
                     "Please include \"{}\" in your next message to show us you mean peace :)"
                     ]).format(user_name, group_name, captcha))
+                jobs.run_once(remove_message, 60*60, context=msg, name=member.id)
                 follow_user(member.id)
                 logging.info(
                     "New member %s (UID %s) joined %s and is now being followed.",
@@ -139,6 +141,12 @@ def inform_admins(admins, user, group, bot=True):
             "New user %s joined %s group but bot has no admin rights. "
             "A message was sent to %d admins, out of which %d failed (%s)"),
             user, group, len(admins), len(failed), ', '.join(failed))
+
+
+def remove_message(bot, job):
+    msg = job.context
+    msg.delete()
+    logging.info("Removed welcome message for user %s", job.name)
 
 
 def help(bot, update):
@@ -247,6 +255,7 @@ if __name__ == '__main__':
     
     filter_admins = FilterAdmins()
     filter_following = FilterFollowingUsers()
+    jobs = updater.job_queue
     
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(CommandHandler('help', help))
