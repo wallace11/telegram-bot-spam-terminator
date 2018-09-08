@@ -220,7 +220,27 @@ def update_following_users():
             following = [int(user) for user in f.readlines()]
     except FileNotFoundError:
         following = []
-    
+
+
+def error(bot, update, error):
+    try:
+        logging.warning('Error raised: "%s"', error)
+    except Unauthorized:  # remove update.message.chat_id from conversation list
+        logging.warning('Unauthorized')
+    except BadRequest:  # handle malformed requests
+        logging.warning('Malformed request (BadRequest)')
+    except TimedOut:  # handle slow connection problems
+        logging.warning('TimedOut')
+        time.sleep(3)
+    except NetworkError:  # handle other connection problems
+        logging.warning('NetworkError')
+        time.sleep(3)
+    except ChatMigrated as e:  # the chat_id of a group has changed, use e.new_chat_id instead
+        logging.warning('ChatMigrated')
+        update.effective_message.chat.chat_id = e.new_chat_id
+    except TelegramError:  # handle all other telegram related errors
+        logging.warning('TelegramError')
+
 
 if __name__ == '__main__':
     update_following_users()
@@ -237,6 +257,7 @@ if __name__ == '__main__':
         MessageHandler(Filters.status_update.new_chat_members, new_user))    
     dispatcher.add_handler(
         MessageHandler(filter_following, check_message))
+    dispatcher.add_error_handler(error)
 
         
     logging.info("Bot started.")
